@@ -1,22 +1,5 @@
 name: E2E Tests (Nightly)
 
-# Runs the full Playwright suite against a deployed-style build on a schedule
-# (and on demand). Catches drift that PR-time integration-tests.yml may not
-# reach: long-running flows, cross-browser matrices, environment-specific
-# regressions.
-#
-# Differences from integration-tests.yml:
-#   - Schedule, not PR-triggered
-#   - Splits into test categories (flows, rbac, responsiveness, chaos,
-#     security, api-contracts) — each fails independently so a single
-#     bucket regression doesn't mask others
-#   - continue-on-error per category so the report captures all failures
-#     in one run instead of stopping at the first
-#
-# Add or remove categories per your suite. The directory layout assumed:
-#   tests/e2e/<category>/*.spec.ts
-#   tests/e2e/playwright.config.ts
-
 on:
   schedule:
     - cron: '0 2 * * *'   # 02:00 UTC daily
@@ -24,154 +7,49 @@ on:
 
 env:
   NODE_VERSION: "22"
-  PNPM_VERSION: "9"
-  DATABASE_URL: postgresql://emc:emc@localhost:5432/emc_test
-  REDIS_URL: redis://localhost:6379
-  JWT_SECRET: ci-test-secret-do-not-use-in-prod
-  ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-  MOCK_MODE: "false"
 
 jobs:
-  # Preflight: skip the full E2E job when the workflow is running in a repo
-  # that has no application code (e.g. this starter-pack template itself).
-  # Consumer repos with a real package.json proceed normally.
-  detect:
-    name: detect
-    runs-on: ubuntu-latest
-    outputs:
-      has_app_code: ${{ steps.check.outputs.has_app_code }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check
-        name: Check for application code
-        run: |
-          if [ -f package.json ]; then
-            echo "has_app_code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_app_code=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No package.json at repo root — treating as template repo, skipping nightly E2E suite."
-          fi
-
   e2e-nightly:
     name: e2e-nightly
-    needs: detect
-    if: needs.detect.outputs.has_app_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: emc
-          POSTGRES_PASSWORD: emc
-          POSTGRES_DB: emc_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U emc"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
+          cache: npm
 
-      - run: pnpm install --frozen-lockfile
-
-      - name: Push Prisma schema
-        run: pnpm db:push
-        working-directory: apps/api
-
-      - name: Seed database
-        run: pnpm db:seed
-        working-directory: apps/api
-
-      - name: Build apps
-        run: pnpm turbo run build --output-logs=new-only
+      - run: npm ci
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium
 
-      - name: Start API + Web in background
-        run: |
-          pnpm --filter @emc/api start &
-          pnpm --filter @emc/web preview --port 5173 &
-          npx wait-on http://localhost:3000/health http://localhost:5173 --timeout 60000
-
-      # Each category runs independently so one failing bucket doesn't mask
-      # the rest. The job overall fails if any category fails (final aggregate step).
       - name: E2E — flows
         id: flows
         continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/flows/ --reporter=html
-        env:
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_USER_OTP: ${{ secrets.E2E_USER_OTP }}
+        run: npx playwright test tests/e2e/flows/ --reporter=html
 
-      - name: E2E — RBAC
-        id: rbac
+      - name: E2E — smoke
+        id: smoke
         continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/rbac/ --reporter=html
-        env:
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_USER_OTP: ${{ secrets.E2E_USER_OTP }}
+        run: npx playwright test tests/e2e/smoke/ --reporter=html
 
-      - name: E2E — responsiveness
-        id: responsiveness
+      - name: E2E — a11y
+        id: a11y
         continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/responsiveness/ --reporter=html
-
-      - name: E2E — chaos / resilience
-        id: chaos
-        continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/chaos/ --reporter=html
-
-      - name: E2E — security path
-        id: security
-        continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/security/ --reporter=html
-
-      - name: E2E — API contracts
-        id: api_contracts
-        continue-on-error: true
-        run: pnpm exec playwright test tests/e2e/api-contracts/ --reporter=html
+        run: npx playwright test tests/a11y/ --reporter=html
 
       - name: Aggregate result
         run: |
           fail=0
-          for s in flows rbac responsiveness chaos security api_contracts; do
-            outcome="${{ steps.flows.outcome }}"
-            # workaround for dynamic step access — read each explicitly
-          done
-          # Hard fail if any explicit outcome is failure
-          [ "${{ steps.flows.outcome }}"          = "failure" ] && echo "::error::flows failed"          && fail=1 || true
-          [ "${{ steps.rbac.outcome }}"           = "failure" ] && echo "::error::rbac failed"           && fail=1 || true
-          [ "${{ steps.responsiveness.outcome }}" = "failure" ] && echo "::error::responsiveness failed" && fail=1 || true
-          [ "${{ steps.chaos.outcome }}"          = "failure" ] && echo "::error::chaos failed"          && fail=1 || true
-          [ "${{ steps.security.outcome }}"       = "failure" ] && echo "::error::security failed"       && fail=1 || true
-          [ "${{ steps.api_contracts.outcome }}"  = "failure" ] && echo "::error::api-contracts failed"  && fail=1 || true
+          [ "${{ steps.flows.outcome }}" = "failure" ] && echo "::error::flows failed" && fail=1 || true
+          [ "${{ steps.smoke.outcome }}" = "failure" ] && echo "::error::smoke failed" && fail=1 || true
+          [ "${{ steps.a11y.outcome }}"  = "failure" ] && echo "::error::a11y failed"  && fail=1 || true
           exit $fail
 
-      - name: Upload Playwright HTML report
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -179,15 +57,6 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-      - name: Upload raw test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-nightly-results
-          path: test-results/
-          retention-days: 7
-
-      # Optional: open an issue when nightly fails so it doesn't go unnoticed
       - name: File issue on failure
         if: failure()
         uses: actions/github-script@v7
@@ -199,6 +68,5 @@ jobs:
               title: `[Nightly] E2E suite failed — ${date}`,
               labels: ['type:bug', 'area:qa-found', 'nightly-failure'],
               body: `Nightly E2E run failed on ${context.sha.substring(0,7)}.\n\n` +
-                    `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n` +
-                    `Categories with failures will be visible in the workflow log. Please triage and link a fix PR.`
+                    `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
             });

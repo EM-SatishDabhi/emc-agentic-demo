@@ -12,116 +12,71 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
-  PNPM_VERSION: "9"
-  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
 
 jobs:
-  # Preflight: skip the CI jobs when running in a repo with no application
-  # code (e.g. this starter-pack template itself). Consumer repos with a
-  # real package.json proceed normally.
-  detect:
-    name: detect
-    runs-on: ubuntu-latest
-    outputs:
-      has_app_code: ${{ steps.check.outputs.has_app_code }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: check
-        name: Check for application code
-        run: |
-          if [ -f package.json ]; then
-            echo "has_app_code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_app_code=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No package.json at repo root — treating as template repo, skipping CI."
-          fi
-
   lint:
     name: lint
-    needs: detect
-    if: needs.detect.outputs.has_app_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run lint --output-logs=new-only
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
 
   typecheck:
     name: typecheck
-    needs: detect
-    if: needs.detect.outputs.has_app_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run typecheck --output-logs=new-only
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
 
   test:
     name: test
-    needs: detect
-    if: needs.detect.outputs.has_app_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run test --output-logs=new-only -- --coverage
+          cache: npm
+      - run: npm ci
+      - run: npm run test:coverage
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: |
-            apps/*/coverage
-            packages/*/coverage
+          path: coverage/
           if-no-files-found: ignore
           retention-days: 7
 
   build:
     name: build
-    needs: detect
-    if: needs.detect.outputs.has_app_code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --output-logs=new-only
-      - name: Upload web build
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Upload dist
         uses: actions/upload-artifact@v4
         with:
-          name: web-dist
-          path: apps/web/dist
+          name: dist
+          path: dist/
           if-no-files-found: error
           retention-days: 7
