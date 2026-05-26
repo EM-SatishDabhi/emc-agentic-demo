@@ -1,0 +1,42 @@
+name: Stale PR Monitor
+
+# Auto-warns and closes inactive PRs to keep the review queue tractable.
+# Issues are NOT touched (days-before-issue-* = -1) — they stay open until
+# explicitly resolved.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1-5'   # 09:00 UTC, weekdays
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+  issues: read
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+          days-before-pr-stale: 7
+          days-before-pr-close: 30
+          stale-pr-label: stale
+          # PRs marked with these labels are exempt from auto-stale/close.
+          # Includes the PQE state machine — a PR sitting in qa:in-progress
+          # for 8 days isn't "stale," it's mid-review.
+          exempt-pr-labels: 'do-not-close,in-progress,qa:in-progress,qa:ready,uat:ready,blocked'
+
+          stale-pr-message: >
+            This PR has been inactive for 7 days. Please update or close it.
+            PRs open longer than 30 days will be auto-closed. Add the `do-not-close`
+            label if it should stay open.
+          close-pr-message: >
+            This PR was auto-closed after 30 days of inactivity.
+            If this work is still needed, reopen or open a new PR.
+
+          # Issues are not auto-stale — set both to -1 to disable that side.
+          days-before-issue-stale: -1
+          days-before-issue-close: -1

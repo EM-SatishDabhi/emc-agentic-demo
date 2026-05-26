@@ -1,0 +1,59 @@
+name: "EM CodeQL config"
+
+# ─────────────────────────────────────────────────────────────────
+# Referenced by .github/workflows/codeql.yml via the `config-file` input.
+# Tunes scope (paths) and depth (query packs) so CodeQL focuses on the
+# code we actually own and ship — not generated code, vendored deps,
+# or test fixtures that produce noisy false positives.
+# ─────────────────────────────────────────────────────────────────
+
+# Run both the standard security suite AND the extended quality+security
+# suite. Together these give CWE coverage plus broader maintainability checks.
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+# Limit analysis to first-party source. Exclude generated, vendored, and
+# test-only paths. Globs are evaluated relative to the repo root.
+paths:
+  - apps/api/src
+  - apps/web/src
+  - packages/types/src
+  - packages/validation/src
+  - packages/config/src
+
+paths-ignore:
+  # Build outputs
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/.next/**"
+  - "**/.turbo/**"
+  - "**/coverage/**"
+
+  # Generated code
+  - "apps/web/src/routeTree.gen.ts"      # TanStack Router file-based route tree
+  - "apps/api/src/generated/**"          # Prisma client generated artifacts
+  - "**/*.gen.ts"
+  - "**/*.generated.ts"
+
+  # Tests + fixtures (covered by other gates; CodeQL findings here are usually intentional)
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/__tests__/**"
+  - "**/__mocks__/**"
+  - "**/__fixtures__/**"
+  - "**/test-utils/**"
+  - "tests/**"
+  - "e2e/**"
+  - "playwright/**"
+
+  # Vendored / third-party
+  - "**/node_modules/**"
+  - "**/vendor/**"
+
+  # Config + docs (no executable code surface)
+  - "**/*.md"
+  - "**/*.mdx"
+  - "**/docs/**"

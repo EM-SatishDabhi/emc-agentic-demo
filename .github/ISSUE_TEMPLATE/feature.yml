@@ -1,0 +1,73 @@
+name: Feature / Epic
+description: High-level feature or epic. Maps to Step 1 (Requirements) of the agentic coding workflow.
+title: "[Feature] "
+labels: ["type:feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template for **net-new features or epics**. For implementable units of work, file Story sub-issues under this one.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / opportunity
+      description: What user or business problem are we solving? Why now?
+      placeholder: Today users have to... which causes...
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What does success look like? Measurable if possible.
+      placeholder: Users can... within X seconds, with Y conversion lift...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      placeholder: |
+        - ...
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Known constraints
+      description: Compliance, performance, deadlines, dependencies, integrations.
+      placeholder: TCPA consent required for SMS; must ship before EOQ; depends on...
+  - type: input
+    id: stakeholder
+    attributes:
+      label: Primary stakeholder
+      description: Who signs off on completion?
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 (drop everything)
+        - P1 (this sprint)
+        - P2 (next 1-2 sprints)
+        - P3 (backlog)
+    validations:
+      required: true
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I've checked Discussions and existing issues for duplicates
+          required: true
+        - label: This is non-sensitive (security issues go through advisories)
+          required: true

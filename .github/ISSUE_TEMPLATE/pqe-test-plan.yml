@@ -1,0 +1,114 @@
+name: PQE Test Plan
+description: One per Story. Holds exploratory checklist (Step 8b — runs on deployed dev after PR merge) + UAT scenarios (Step 12b — runs on staging). Auto-created when the parent PR merges to dev.
+title: "[Test Plan] EMC-NNN — "
+labels: ["type:test-plan", "area:pqe"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **One PQE Test Plan per Story.** This is the audit artifact for what got tested before shipping.
+        Closes when both the exploratory pass (on `dev`) and UAT (on `staging`) are signed off.
+
+        **Timing:** Step 8b runs *after* the PR merges to `dev`. Step 12b runs on `staging` before the
+        promotion to `main`. Both happen against deployed environments — not against PR diffs.
+  - type: input
+    id: parent-story
+    attributes:
+      label: Parent Story
+      description: Issue number (e.g., #201)
+      placeholder: "#"
+    validations:
+      required: true
+  - type: input
+    id: pr
+    attributes:
+      label: PR (once opened)
+      placeholder: "#"
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk tier
+      description: Drives how deep the testing goes and whether stakeholder UAT is required.
+      options:
+        - Low (docs / copy / dep bump — qa:skip eligible)
+        - Moderate (single-flow feature, internal)
+        - High (touches PII / payments / outbound comms / compliance)
+        - Critical (security / regulatory / public-facing changes)
+    validations:
+      required: true
+  - type: textarea
+    id: charter
+    attributes:
+      label: Exploratory charter (Step 8b — runs on deployed dev)
+      description: One line — what are you trying to break? Test against the deployed `dev` environment, not the PR diff.
+      placeholder: "I'm trying to break the consent path with rapid opt-in/opt-out toggles."
+    validations:
+      required: true
+  - type: textarea
+    id: exploratory-checklist
+    attributes:
+      label: Exploratory checklist (Step 8b)
+      description: Tick as you complete. Add story-specific scenarios above the standard probes.
+      value: |
+        **Story-specific:**
+        - [ ]
+        - [ ]
+
+        **Standard probes:**
+        - [ ] Empty / null / oversized inputs
+        - [ ] Boundary values (off-by-one)
+        - [ ] Cross-browser: Chrome + Safari + Firefox
+        - [ ] Mobile: iOS Safari, narrow viewport
+        - [ ] Auth edges: expired token mid-action, role downgrade
+        - [ ] Timing: timezone, DST, year boundary, slow network
+        - [ ] Concurrency: two tabs / two users
+        - [ ] Compliance: opt-out path, consent path, audit log written
+        - [ ] Recovery: 5xx behavior, user-facing error message
+        - [ ] Accessibility: keyboard-only nav, basic screen-reader pass
+    validations:
+      required: true
+  - type: textarea
+    id: uat-scenarios
+    attributes:
+      label: UAT scenarios (Step 12b — runs on staging)
+      description: One per AC, written in user-facing voice. Verified on the deployed `staging` environment after dev → staging promotion.
+      value: |
+        - [ ] As <persona>, I can <action>, and observe <outcome> — maps to AC #1
+        - [ ] As <persona>, I can <action>, and observe <outcome> — maps to AC #2
+        - [ ] As <persona>, I can <action>, and observe <outcome> — maps to AC #3
+    validations:
+      required: true
+  - type: textarea
+    id: stakeholder-walkthrough
+    attributes:
+      label: Stakeholder walkthrough (High / Critical risk only)
+      description: Schedule with the Story's primary stakeholder; capture date + outcome.
+      placeholder: |
+        Scheduled: 2026-MM-DD
+        Stakeholder: <name>
+        Outcome: <approved / approved-with-changes / rejected>
+        Notes:
+  - type: textarea
+    id: bugs-filed
+    attributes:
+      label: Bugs filed during testing
+      description: Link issues. One bug per root cause (not per symptom).
+      placeholder: |
+        - #
+        - #
+  - type: dropdown
+    id: signoff
+    attributes:
+      label: Final sign-off
+      options:
+        - Pending
+        - Passed (qa:passed + uat:passed labeled on PR)
+        - Failed (bugs filed, PR labeled qa:failed or uat:failed)
+        - Waived (with Tech Lead approval — recorded in changelog)
+    validations:
+      required: true
+  - type: input
+    id: signoff-by
+    attributes:
+      label: Signed off by (PQE handle)
+      placeholder: "@your-handle"

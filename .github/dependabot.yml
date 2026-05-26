@@ -1,0 +1,113 @@
+version: 2
+
+# ─────────────────────────────────────────────────────────────────
+# Dependabot config for EM monorepos (Step 11 — SAST/SCA remediation)
+#
+# Strategy:
+#   • One npm entry per package.json directory (Dependabot does not yet
+#     traverse pnpm workspaces from a single root entry reliably).
+#   • Group minor + patch into a single PR per ecosystem per week to
+#     keep PR volume low. Major bumps stay separate so a human reviews.
+#   • Security updates are exempt from grouping and arrive immediately.
+#   • All PRs target `dev` (matches the repo flow: feature → dev → staging → main).
+# ─────────────────────────────────────────────────────────────────
+
+updates:
+  # ─── npm ecosystem (pnpm-compatible) ───────────────────────────
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 5
+    labels: [type:task, deps]
+    commit-message:
+      prefix: "chore(deps)"
+      include: scope
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # Pin Node major in engines; bump intentionally
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: npm
+    directory: /apps/api
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 5
+    labels: [type:task, deps, area:backend]
+    commit-message: { prefix: "chore(api/deps)", include: scope }
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 5
+    labels: [type:task, deps, area:frontend]
+    commit-message: { prefix: "chore(web/deps)", include: scope }
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      tanstack:
+        patterns: ["@tanstack/*"]
+      tailwind:
+        patterns: ["tailwindcss", "@tailwindcss/*"]
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+        exclude-patterns: ["react", "react-dom", "@tanstack/*", "tailwindcss", "@tailwindcss/*"]
+
+  - package-ecosystem: npm
+    directory: /packages/types
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 3
+    labels: [type:task, deps, area:packages]
+    commit-message: { prefix: "chore(types/deps)", include: scope }
+    groups: { minor-and-patch: { patterns: ["*"], update-types: [minor, patch] } }
+
+  - package-ecosystem: npm
+    directory: /packages/validation
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 3
+    labels: [type:task, deps, area:packages]
+    commit-message: { prefix: "chore(validation/deps)", include: scope }
+    groups: { minor-and-patch: { patterns: ["*"], update-types: [minor, patch] } }
+
+  - package-ecosystem: npm
+    directory: /packages/config
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 3
+    labels: [type:task, deps, area:packages]
+    commit-message: { prefix: "chore(config/deps)", include: scope }
+    groups: { minor-and-patch: { patterns: ["*"], update-types: [minor, patch] } }
+
+  # ─── GitHub Actions ────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 3
+    labels: [type:task, deps, area:ci]
+    commit-message: { prefix: "chore(ci/deps)", include: scope }
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # ─── Docker (compose + any Dockerfiles) ────────────────────────
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly, day: monday, time: "06:00", timezone: America/New_York }
+    target-branch: dev
+    open-pull-requests-limit: 3
+    labels: [type:task, deps, area:infra]
+    commit-message: { prefix: "chore(docker/deps)", include: scope }

@@ -1,0 +1,87 @@
+name: Sync DevPortal Stats
+
+# Pushes per-repo stats (commits, PRs, contributors, build status) to a
+# central devportal repo. The devportal aggregates stats across all EM
+# repos for engineering leadership reporting.
+#
+# ──────────────────────────────────────────────────────────────────────────
+# WIRE-UP CHECKLIST (do once per repo before enabling):
+#   1. Settings → Secrets and variables → Actions → New repository secret
+#        DEVPORTAL_PAT — fine-grained PAT with write access to the devportal
+#                        repo (scopes: contents:write, repository_dispatch).
+#   2. Settings → Secrets and variables → Actions → Variables tab
+#        DEVPORTAL_REPO — target repo, e.g. "Engineersmind/em-devportal"
+#                         (defaults to Engineersmind/em-devportal if unset)
+#   3. Make sure scripts/extract-devportal-stats.js exists and writes
+#      project-stats.json at repo root. Reference implementation at:
+#        Engineersmind/fylix-aicore-frontend/scripts/extract-devportal-stats.js
+#   4. The devportal repo must have a workflow that listens for
+#      `frontend-stats-updated` repository_dispatch events.
+#
+# Runs on every push to dev (so the devportal stays current with
+# integration activity) plus manual dispatch for ad-hoc resync.
+# ──────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Skip the job entirely if the script doesn't exist yet — keeps the
+    # starter pack drop-in safe before scripts/ is wired up.
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Skip if extractor script missing
+        id: precheck
+        run: |
+          if [ ! -f "scripts/extract-devportal-stats.js" ]; then
+            echo "::warning::scripts/extract-devportal-stats.js not found — skipping devportal sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.precheck.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Extract stats and publish to ci/stats branch
+        if: steps.precheck.outputs.skip != 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          node scripts/extract-devportal-stats.js
+          # Build a commit containing only project-stats.json — keeps the
+          # main history clean while still publishing to a tracked branch.
+          blob_sha=$(git hash-object -w project-stats.json)
+          tree_sha=$(printf '100644 blob %s\tproject-stats.json\n' "$blob_sha" | git mktree)
+          commit_sha=$(git commit-tree "$tree_sha" -m "chore: update project-stats.json")
+          git push origin "$commit_sha:refs/heads/task/ci/CI-1-project-stats" --force
+
+      - name: Trigger devportal rebuild
+        if: steps.precheck.outputs.skip != 'true'
+        uses: peter-evans/repository-dispatch@v3
+        continue-on-error: true   # don't fail the job if devportal is unreachable
+        with:
+          token: ${{ secrets.DEVPORTAL_PAT }}
+          repository: ${{ vars.DEVPORTAL_REPO || 'Engineersmind/em-devportal' }}
+          event-type: project-stats-updated
+          client-payload: |
+            {
+              "sha": "${{ github.sha }}",
+              "ref": "${{ github.ref }}",
+              "source_repo": "${{ github.repository }}"
+            }

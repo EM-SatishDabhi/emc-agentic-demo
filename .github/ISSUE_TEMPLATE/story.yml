@@ -1,0 +1,81 @@
+name: Story
+description: Implementable unit of work with acceptance criteria. Maps to Step 2 (Stories) of the agentic coding workflow.
+title: "[Story] "
+labels: ["type:story", "needs-plan"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A Story is sized to fit in a single PR. If it can't, split it. After this issue is filed, the dev runs `gh issue develop` to create a `feature/EM-X/EMC-NNN-…` branch, then `/gsd:plan-phase` in Claude Code to produce PLAN.md.
+  - type: input
+    id: parent
+    attributes:
+      label: Parent feature
+      description: Issue number of the parent feature/epic (e.g., #123)
+      placeholder: "#"
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User story
+      description: Standard format
+      value: |
+        As a <persona>
+        I want <capability>
+        So that <outcome>
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Given/When/Then. These become the test cases in Step 6 (TDD-RED).
+      value: |
+        - [ ] Given ... When ... Then ...
+        - [ ] Given ... When ... Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: technical-notes
+    attributes:
+      label: Technical notes
+      description: APIs touched, modules involved, data model changes, feature flags.
+      placeholder: Touches apps/api/src/modules/auth, adds claims-table column...
+  - type: dropdown
+    id: persona
+    attributes:
+      label: Primary persona
+      options:
+        - Super Admin
+        - Agency Admin
+        - Agent / Producer
+        - CSR
+        - Marketing Manager
+        - Compliance Officer
+        - Claims Adjuster
+        - Policyholder
+        - Internal / system
+    validations:
+      required: true
+  - type: dropdown
+    id: size
+    attributes:
+      label: Estimated size
+      options:
+        - XS (< half day)
+        - S (1 day)
+        - M (2-3 days)
+        - L (1 week — consider splitting)
+    validations:
+      required: true
+  - type: checkboxes
+    id: nfr
+    attributes:
+      label: NFR considerations (Step 9)
+      description: Tick anything this story must satisfy beyond functional correctness.
+      options:
+        - label: Performance budget (specify in technical notes)
+        - label: Accessibility (WCAG 2.2 AA)
+        - label: Security review (handles PII / auth / payments)
+        - label: TCPA / DNC compliance (outbound communications)
+        - label: AI guardrails (no insurance advice)
+        - label: Audit logging (compliance trail)

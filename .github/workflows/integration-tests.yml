@@ -1,0 +1,116 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [dev, staging, main]
+  push:
+    branches: [staging, main]
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9"
+  DATABASE_URL: postgresql://emc:emc@localhost:5432/emc_test
+  REDIS_URL: redis://localhost:6379
+  JWT_SECRET: ci-test-secret-do-not-use-in-prod
+  ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  MOCK_MODE: "false"
+
+jobs:
+  # Preflight: skip integration tests when running in a repo with no
+  # application code (e.g. this starter-pack template itself). Consumer
+  # repos with a real package.json proceed normally.
+  detect:
+    name: detect
+    runs-on: ubuntu-latest
+    outputs:
+      has_app_code: ${{ steps.check.outputs.has_app_code }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        name: Check for application code
+        run: |
+          if [ -f package.json ]; then
+            echo "has_app_code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app_code=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No package.json at repo root — treating as template repo, skipping integration tests."
+          fi
+
+  integration-tests:
+    name: integration-tests
+    needs: detect
+    if: needs.detect.outputs.has_app_code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: emc
+          POSTGRES_PASSWORD: emc
+          POSTGRES_DB: emc_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U emc"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Push Prisma schema
+        run: pnpm db:push
+        working-directory: apps/api
+
+      - name: Seed database
+        run: pnpm db:seed
+        working-directory: apps/api
+
+      - name: Build apps
+        run: pnpm turbo run build --output-logs=new-only
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Start API + Web in background
+        run: |
+          pnpm --filter @emc/api start &
+          pnpm --filter @emc/web preview --port 5173 &
+          npx wait-on http://localhost:3000/health http://localhost:5173 --timeout 60000
+
+      - name: Run Playwright tests
+        run: pnpm exec playwright test --reporter=html,github
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 14

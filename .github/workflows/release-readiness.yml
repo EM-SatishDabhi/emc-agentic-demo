@@ -1,0 +1,138 @@
+name: Release Readiness
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  release-readiness:
+    name: release-readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ─── 1. Source branch must be `staging` ───────────────
+      - name: Source branch must be staging
+        run: |
+          SRC="${{ github.head_ref }}"
+          echo "PR source branch: $SRC"
+          if [ "$SRC" != "staging" ]; then
+            echo "::error::PRs into main must come from staging (got: $SRC). Hotfixes are the only exception — open a hotfix PR with the 'hotfix' label and re-run."
+            # Allow hotfix label as an explicit override
+            if [ "${{ contains(github.event.pull_request.labels.*.name, 'hotfix') }}" != "true" ]; then
+              exit 1
+            fi
+            echo "Hotfix label present — allowing direct merge to main."
+          fi
+
+      # ─── 2. CHANGELOG.md updated ──────────────────────────
+      - name: CHANGELOG.md updated
+        run: |
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::warning::No CHANGELOG.md in repo — skipping changelog check"
+            exit 0
+          fi
+          if git diff --name-only origin/main...HEAD | grep -qx CHANGELOG.md; then
+            echo "CHANGELOG.md updated"
+          else
+            echo "::error::CHANGELOG.md was not updated for this release. Add an entry under '## [Unreleased]' or a new version heading."
+            exit 1
+          fi
+
+      # ─── 3. Version bumped in root package.json ───────────
+      - name: Version bumped
+        run: |
+          if [ ! -f package.json ]; then
+            echo "::warning::No root package.json — skipping version check"
+            exit 0
+          fi
+          OLD_VERSION=$(git show origin/main:package.json | jq -r '.version // "0.0.0"')
+          NEW_VERSION=$(jq -r '.version // "0.0.0"' package.json)
+          echo "Old: $OLD_VERSION  →  New: $NEW_VERSION"
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "::error::package.json version unchanged ($NEW_VERSION). Bump per semver before merging to main."
+            exit 1
+          fi
+
+      # ─── 4. No PRs that bypass review ─────────────────────
+      - name: No bypassed reviews
+        run: |
+          # Surfaces PRs merged into staging since last main release that had reviews bypassed.
+          # Lightweight signal — the ruleset already enforces approvals; this is a belt-and-suspenders log.
+          echo "Commits inbound to main from staging:"
+          git log --oneline origin/main..HEAD | head -50
+
+      # ─── 4b. Every PR in the promotion has uat:passed ─────
+      - name: PQE UAT sign-off check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Hotfix-labeled PRs bypass UAT (the override is intentional and audited)
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            if (labels.includes('hotfix')) {
+              core.info('Hotfix label present — skipping UAT enumeration.');
+              return;
+            }
+
+            // Enumerate squash-merge commits inbound to main from this PR's diff
+            const { execSync } = require('child_process');
+            const log = execSync('git log --oneline origin/main..HEAD --no-merges').toString();
+            const lines = log.trim().split('\n').filter(Boolean);
+            // Squash commits include "(#NNN)" suffix from GitHub UI
+            const prNumbers = [...new Set(
+              lines.flatMap(l => [...l.matchAll(/\(#(\d+)\)/g)].map(m => parseInt(m[1])))
+            )];
+
+            if (prNumbers.length === 0) {
+              core.warning('No PR numbers extracted from commit log — skipping UAT enumeration. Verify squash commits include (#NNN) suffix.');
+              return;
+            }
+
+            core.info(`Checking ${prNumbers.length} PRs in this promotion for uat:passed...`);
+            const missing = [];
+
+            for (const num of prNumbers) {
+              try {
+                const { data } = await github.rest.pulls.get({
+                  owner: context.repo.owner, repo: context.repo.repo, pull_number: num
+                });
+                const lbls = data.labels.map(l => l.name);
+                const ok = lbls.includes('uat:passed') || lbls.includes('uat:waived') || lbls.includes('hotfix');
+                if (!ok) missing.push({ num, title: data.title });
+              } catch (e) {
+                core.warning(`Could not fetch PR #${num}: ${e.message}`);
+              }
+            }
+
+            if (missing.length > 0) {
+              const list = missing.map(m => `  - #${m.num}  ${m.title}`).join('\n');
+              core.setFailed(
+                `❌ ${missing.length} PR(s) in this promotion are missing \`uat:passed\` (or \`uat:waived\` / \`hotfix\`):\n${list}\n\n` +
+                'PQE must run UAT on the deployed staging environment and label each PR before staging→main can merge. ' +
+                '(QA on dev was already enforced at the dev→staging gate; this is the UAT-on-staging check.)'
+              );
+            } else {
+              core.info(`✓ All ${prNumbers.length} PRs have UAT sign-off.`);
+            }
+
+      # ─── 5. Migration safety check ────────────────────────
+      - name: Migration safety
+        run: |
+          MIGRATIONS=$(git diff --name-only origin/main...HEAD -- 'apps/api/prisma/migrations/**/*.sql' || true)
+          if [ -n "$MIGRATIONS" ]; then
+            echo "::warning::This release contains DB migrations:"
+            echo "$MIGRATIONS"
+            echo ""
+            echo "Confirm in PR description that:"
+            echo "  - Migrations are reversible OR a tested down-migration exists"
+            echo "  - Backfill is idempotent if applicable"
+            echo "  - Lock impact assessed for tables > 1M rows"
+          fi

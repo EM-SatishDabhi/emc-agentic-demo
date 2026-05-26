@@ -1,0 +1,103 @@
+name: NFR Checks
+
+on:
+  pull_request:
+    branches: [dev, staging, main]
+  push:
+    branches: [staging, main]
+
+concurrency:
+  group: nfr-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9"
+
+jobs:
+  # Preflight: skip NFR checks when running in a repo with no application
+  # code (e.g. this starter-pack template itself). Consumer repos with a
+  # real package.json proceed normally.
+  detect:
+    name: detect
+    runs-on: ubuntu-latest
+    outputs:
+      has_app_code: ${{ steps.check.outputs.has_app_code }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        name: Check for application code
+        run: |
+          if [ -f package.json ]; then
+            echo "has_app_code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_app_code=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No package.json at repo root — treating as template repo, skipping NFR checks."
+          fi
+
+  nfr-checks:
+    name: nfr-checks
+    needs: detect
+    if: needs.detect.outputs.has_app_code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        run: pnpm --filter @emc/web build
+
+      # ─── Bundle size budget ───────────────────────────────
+      - name: Bundle size check
+        run: |
+          set -e
+          cd apps/web/dist
+          MAIN_KB=$(du -sk assets | cut -f1)
+          BUDGET_KB=1500   # 1.5 MB total assets budget
+          echo "Bundle: ${MAIN_KB}KB (budget: ${BUDGET_KB}KB)"
+          if [ "$MAIN_KB" -gt "$BUDGET_KB" ]; then
+            echo "::error::Bundle exceeds budget by $((MAIN_KB - BUDGET_KB))KB"
+            exit 1
+          fi
+
+      # ─── Accessibility (axe via Playwright) ───────────────
+      - name: Install Playwright + axe
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm add -w -D @axe-core/playwright
+
+      - name: Serve built web
+        run: |
+          npx serve apps/web/dist -p 5173 &
+          npx wait-on http://localhost:5173 --timeout 30000
+
+      - name: Run a11y scan
+        run: pnpm exec playwright test --project=a11y || (echo "::warning::a11y violations found" && exit 1)
+        continue-on-error: false
+
+      # ─── Lighthouse perf budget ───────────────────────────
+      - name: Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: |
+            http://localhost:5173/
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: ./.lighthouserc.json
+        continue-on-error: true   # warn-only until baselines stabilize; flip to required after 2 sprints
+
+      # ─── License / compliance check ───────────────────────
+      - name: License audit
+        run: pnpm dlx license-checker-rseidelsohn --production --excludePackages "$(jq -r .name package.json)" --failOn "GPL;AGPL;LGPL;CPAL;OSL;EUPL"

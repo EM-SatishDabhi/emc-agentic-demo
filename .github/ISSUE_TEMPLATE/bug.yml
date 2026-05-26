@@ -1,0 +1,71 @@
+name: Bug
+description: Something is broken in production or a deployed environment.
+title: "[Bug] "
+labels: ["type:bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security vulnerabilities, do **not** open a public issue — file a private advisory instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line description of what's broken.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include stack traces, screenshots, network logs.
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "prod / staging / dev / local — commit SHA, browser, OS"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - S0 (data loss / outage / security)
+        - S1 (major feature broken, no workaround)
+        - S2 (feature impaired, workaround exists)
+        - S3 (cosmetic / minor)
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: User impact
+      description: How many users affected? Which personas? Revenue or compliance impact?
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      options:
+        - label: I've searched existing issues
+          required: true
+        - label: This is non-sensitive (security goes through advisories)
+          required: true

@@ -1,0 +1,52 @@
+name: Task / Chore / Refactor
+description: Internal work that isn't a user-facing feature or a bug — refactors, infra, tooling, docs, dependency bumps.
+title: "[Task] "
+labels: ["type:task"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - refactor
+        - infra / DevOps
+        - tooling
+        - dependency upgrade
+        - docs
+        - tech debt
+        - research / spike
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why now
+      description: What does this unblock or de-risk? If you can't answer this, it's probably not urgent.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0
+        - P1
+        - P2
+        - P3
+    validations:
+      required: true

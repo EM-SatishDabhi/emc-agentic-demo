@@ -1,0 +1,76 @@
+# EngineersMind CODEOWNERS — sample
+# Syntax: <pattern>  <owner1> <owner2>
+# Owners listed here are auto-requested as PR reviewers and required by branch rulesets.
+# Replace placeholder team handles below with real ones from your org.
+
+# ─────────────────────────────────────────────
+# Default owner for everything (catch-all)
+# ─────────────────────────────────────────────
+*                                @Engineersmind/eng-leads
+
+# ─────────────────────────────────────────────
+# Workflow + governance — lead-only changes
+# ─────────────────────────────────────────────
+/.github/                        @Engineersmind/eng-leads @Engineersmind/devops
+/.github/CODEOWNERS              @Engineersmind/eng-leads
+/.github/workflows/              @Engineersmind/devops @Engineersmind/eng-leads
+/CLAUDE.md                       @Engineersmind/eng-leads
+
+# ─────────────────────────────────────────────
+# Backend (Fastify / Prisma / Postgres)
+# ─────────────────────────────────────────────
+/apps/api/                       @Engineersmind/backend
+/apps/api/src/modules/auth/      @Engineersmind/backend @Engineersmind/security
+/apps/api/prisma/                @Engineersmind/backend @Engineersmind/data
+
+# ─────────────────────────────────────────────
+# Frontend (React / TanStack)
+# ─────────────────────────────────────────────
+/apps/web/                       @Engineersmind/frontend
+
+# ─────────────────────────────────────────────
+# Shared packages — change with care, breaks consumers
+# ─────────────────────────────────────────────
+/packages/types/                 @Engineersmind/backend @Engineersmind/frontend
+/packages/validation/            @Engineersmind/backend @Engineersmind/frontend
+/packages/config/                @Engineersmind/eng-leads
+
+# ─────────────────────────────────────────────
+# Infra / DevOps
+# ─────────────────────────────────────────────
+/docker-compose*.yml             @Engineersmind/devops
+/turbo.json                      @Engineersmind/devops
+/pnpm-workspace.yaml             @Engineersmind/devops
+/.dockerignore                   @Engineersmind/devops
+
+# ─────────────────────────────────────────────
+# Compliance-sensitive paths — extra reviewers (incl. PQE for test-coverage judgment)
+# ─────────────────────────────────────────────
+# Anything touching PII encryption, TCPA consent, DNC, or AI guardrails
+/apps/api/src/modules/compliance/    @Engineersmind/security @Engineersmind/compliance @Engineersmind/pqe
+/apps/api/src/modules/messaging/     @Engineersmind/compliance @Engineersmind/pqe
+/apps/api/src/lib/encryption*        @Engineersmind/security
+
+# ─────────────────────────────────────────────
+# PQE-owned: test plans, manual test artifacts, test infrastructure
+# ─────────────────────────────────────────────
+/.github/ISSUE_TEMPLATE/pqe-test-plan.yml   @Engineersmind/pqe @Engineersmind/eng-leads
+/tests/manual/                              @Engineersmind/pqe
+/playwright/                                @Engineersmind/pqe @Engineersmind/frontend
+/e2e/                                       @Engineersmind/pqe @Engineersmind/frontend
+
+# ─────────────────────────────────────────────
+# Testing strategy taxonomy (TESTING.md model) — per-layer ownership.
+# Each row backs the "Each layer has a CODEOWNERS entry" claim in TESTING.md.
+# Replace placeholder team handles below with real ones from your org.
+# ─────────────────────────────────────────────
+/TESTING.md                                 @Engineersmind/pqe @Engineersmind/eng-leads
+/tests/README.md                            @Engineersmind/pqe @Engineersmind/eng-leads
+/tests/contract/                            @Engineersmind/pqe @Engineersmind/backend
+/tests/e2e/flows/                           @Engineersmind/pqe @Engineersmind/frontend
+/tests/e2e/regression/                      @Engineersmind/pqe
+/tests/e2e/smoke/                           @Engineersmind/pqe @Engineersmind/devops
+/tests/e2e/chaos/                           @Engineersmind/devops
+/tests/perf/                                @Engineersmind/devops @Engineersmind/frontend
+/tests/security/                            @Engineersmind/security @Engineersmind/pqe
+/tests/a11y/                                @Engineersmind/frontend @Engineersmind/pqe
