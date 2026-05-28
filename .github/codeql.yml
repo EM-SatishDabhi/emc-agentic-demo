@@ -16,6 +16,7 @@ queries:
 # Limit analysis to first-party source. Exclude generated, vendored, and
 # test-only paths. Globs are evaluated relative to the repo root.
 paths:
+  - src
   - apps/api/src
   - apps/web/src
   - packages/types/src
