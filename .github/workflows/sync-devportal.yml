@@ -39,7 +39,7 @@ jobs:
     # Skip the job entirely if the script doesn't exist yet — keeps the
     # starter pack drop-in safe before scripts/ is wired up.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 1
 
