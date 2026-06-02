@@ -73,7 +73,7 @@ jobs:
 
       - name: Trigger devportal rebuild
         if: steps.precheck.outputs.skip != 'true'
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@v4
         continue-on-error: true   # don't fail the job if devportal is unreachable
         with:
           token: ${{ secrets.DEVPORTAL_PAT }}
