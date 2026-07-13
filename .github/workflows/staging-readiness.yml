@@ -34,7 +34,7 @@ jobs:
 
       # ─── 2. Every PR in the promotion has qa:passed ───────────
       - name: PQE QA sign-off check
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // Hotfix-labeled promotions bypass the QA enumeration (intentional, audited override)

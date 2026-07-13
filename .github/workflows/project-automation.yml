@@ -69,7 +69,7 @@ jobs:
 
       - name: Set issue to "In Progress"
         if: steps.extract.outputs.found == 'true' && steps.token.outputs.ok == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           ISSUE_NUMBER: ${{ steps.extract.outputs.issue }}
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
@@ -87,7 +87,7 @@ jobs:
     steps:
       - name: Move associated issue → In Review
         if: vars.PROJECT_NUMBER != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           PREFIX: ${{ vars.TICKET_PREFIX || 'EMC' }}
@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Move associated issue → In QA
         if: vars.PROJECT_NUMBER != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           PREFIX: ${{ vars.TICKET_PREFIX || 'EMC' }}
@@ -141,7 +141,7 @@ jobs:
     steps:
       - name: Move associated issue → QA Passed
         if: vars.PROJECT_NUMBER != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           PREFIX: ${{ vars.TICKET_PREFIX || 'EMC' }}
@@ -164,7 +164,7 @@ jobs:
     steps:
       - name: Move associated issue → Done
         if: vars.PROJECT_NUMBER != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
           PREFIX: ${{ vars.TICKET_PREFIX || 'EMC' }}

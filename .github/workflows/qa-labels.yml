@@ -16,7 +16,7 @@ jobs:
     if: github.event.action == 'labeled' || github.event.action == 'unlabeled'
     steps:
       - name: Enforce label invariants
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -68,7 +68,7 @@ jobs:
     if: github.event.action == 'labeled' && github.event.label.name == 'qa:ready'
     steps:
       - name: Create or link PQE Test Plan issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -117,7 +117,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Set commit status from uat:* label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -152,7 +152,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Set commit status from qa:* label
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -183,7 +183,7 @@ jobs:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'dev'
     steps:
       - name: Apply qa:ready or qa:skip to merged PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
@@ -246,7 +246,7 @@ jobs:
     if: github.event_name == 'pull_request' && (github.event.action == 'closed' || github.event.action == 'labeled' || github.event.action == 'opened')
     steps:
       - name: Flip linked ticket status labels
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
