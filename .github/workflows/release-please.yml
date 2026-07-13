@@ -24,7 +24,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # Change to "python" / "go" / "java" / "simple" per your stack.
           # See: https://github.com/googleapis/release-please/blob/main/docs/manifest-releaser.md
